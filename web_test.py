@@ -1,38 +1,32 @@
 # web_test.py
 
 from flask import Flask, render_template, request, jsonify, session
-from langchain_openai import ChatOpenAI
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_chroma import Chroma
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from langchain_core.runnables import RunnablePassthrough
-from langchain_openai import OpenAIEmbeddings
 from dotenv import load_dotenv
 import os
 import time
 import uuid
+from datetime import datetime  # Add this import
 
 load_dotenv()
 
 app = Flask(__name__)
-app.secret_key = os.urandom(24)  # For session management
+app.secret_key = os.urandom(24)
 
-# Initialize embeddings and vector DB
 embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
 vectordb = Chroma(persist_directory="./studio_db", embedding_function=embeddings)
 retriever = vectordb.as_retriever(search_kwargs={"k": 3})
 
-# Dictionary to store conversation histories
 conversations = {}
+llm = ChatOpenAI(model_name="gpt-4o", temperature=1.2)
 
-# Initialize LLM
-llm = ChatOpenAI(
-    model_name="gpt-4o",
-    temperature=0.7,
-)
-
-# Define the system message
-system_message = """You are Zayn, a friendly and professional AI sales qualifier at StudioRepublik Dubai. Your primary goal is to qualify potential clients, encourage scheduling a facility tour, and collect useful profiling information to help the sales team.
+# Dynamic system message with current date
+current_date = datetime.now().strftime("%B %d, %Y")  # e.g., "March 7, 2025"
+system_message = f"""You are Zayn, a friendly and professional AI sales qualifier at StudioRepublik Dubai. Your primary goal is to qualify potential clients, encourage scheduling a facility tour, and collect useful profiling information to help the sales team. Today is {current_date}.
 
 Your conversational priorities are:
 1. SUGGEST A TOUR within the first 2-3 exchanges in the conversation.
@@ -54,6 +48,7 @@ Guidelines:
 - NEVER BE PUSHY. If they say "not interested" or ignore your tour suggestion twice, focus on building rapport through conversation instead.
 - After a client says "not interested" in a tour, ask about their fitness routines or goals instead.
 - ALWAYS CHECK THE PROVIDED CONTEXT for answers first—don’t skip details like facility size, class schedules, or policies. If it’s in the context, use it! If uncertain or missing, say: "Our sales team can fill you in when you visit."
+- For junior term questions, use today’s date ({current_date}) to determine the current term by comparing it to the term dates in the context. If the date falls between a term’s start and end, that’s the current term!
 - Do not format your response with paragraph breaks—I’ll split it by sentences.
 
 Here's information about StudioRepublik that you can refer to:
