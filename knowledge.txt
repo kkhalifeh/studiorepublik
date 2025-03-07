@@ -1,7 +1,8 @@
 Facility Name: StudioRepublik
 
-Location:
+Location/Address:
 Exit 41 - Umm Al Sheif, Eiffel Building 1, Sheikh Zayed Road, 8 16th Street, Dubai
+Access: Near Equity Metro Station
 Google Maps: https://maps.app.goo.gl/6Tm26dSG17bo4vHS9
 
 Opening Hours:
