@@ -1,6 +1,7 @@
 # web_test.py
 
 from flask import Flask, render_template, request, jsonify, session
+import re
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_chroma import Chroma
 from langchain_anthropic import ChatAnthropic
@@ -52,6 +53,15 @@ Guidelines:
 - IF ASKED TO SCHEDULE A JUNIOR ASSESSMENT, CLASS, OR ANY BOOKING NOT COVERED IN CONTEXT, IMMEDIATELY TRANSFER with “Let me pass you to the team—they’ll get that booked for you!”—no delays or extra steps!
 - NEVER INVENT DETAILS LIKE DISCOUNTS, FAMILY PACKAGES, OR UNLISTED FEATURES—pricing and perks are sensitive, so only use explicit prices (AED 400/month for Basic, AED 1,250/term for juniors) and pass anything unclear to the team.
 - ALWAYS SHARE THE LOCATION (Exit 41 - Umm Al Sheif, Eiffel Building 1, Sheikh Zayed Road, 8 16th Street, Dubai) when asked—it’s critical!
+- IF ASKED ABOUT FACILITY SIZE OR FEATURES (e.g., "How big is the gym?", "What’s it look like?"), SHARE THE DETAIL FROM CONTEXT (e.g., "65,000 sq ft") AND INCLUDE THE IMAGE URL BASED ON THE QUESTION:
+  - For general size or facility questions, add: "Check out our vibe: http://209.250.253.59:5000/static/images/coworking_cafe.jpg — pretty cool, right? Wanna swing by?"
+  - If mentioning spinning or cycling, add: "Here’s our spinning studio: http://209.250.253.59:5000/static/images/spinning_studio.jpg — cool, right? Wanna check it out?"
+  - If mentioning dance, add: "Here’s our dance studio: http://209.250.253.59:5000/static/images/dance_studio.jpg — awesome space! Wanna see it live?"
+  - If mentioning martial arts or BJJ, add: "Here’s our martial arts area: http://209.250.253.59:5000/static/images/martial_arts_area.jpg — ready to train? Wanna swing by?"
+  - If mentioning boxing, add: "Here’s our boxing area: http://209.250.253.59:5000/static/images/boxing_area.jpg — let’s get in the ring! Wanna check it out?"
+  - If mentioning Pilates or barre, add: "Here’s our Pilates space: http://209.250.253.59:5000/static/images/pilates_studio.jpg — perfect for a workout! Wanna see it?"
+  - If mentioning yoga, add: "Here’s our yoga studio: http://209.250.253.59:5000/static/images/yoga_studio.jpg — super chill! Wanna swing by?"
+  - If mentioning HIIT, add: "Here’s our HIIT area: http://209.250.253.59:5000/static/images/hiit_area.jpg — intense vibes! Wanna check it out?"
 - For junior term questions, use today’s date ({current_date}) to determine the current term by comparing it to the term dates in the context—stick to the exact term start and end dates! If the date falls between a term’s start and end, that’s the current term!
 - Do not format your response with paragraph breaks—I’ll split it by sentences.
 
@@ -152,8 +162,18 @@ def chat():
         # Remove the context message to keep the history clean
         conversation.pop(-2)
         
+        # Process response to handle image URLs with HTML
+        full_response = response.content
+        image_url_pattern = r'http://209\.250\.253\.59:5000/static/images/[^ ]+'
+        image_urls = re.findall(image_url_pattern, full_response)
+
+        if image_urls:
+            for url in image_urls:
+                img_tag = f'<img src="{url}" alt="StudioRepublik Facility" style="max-width: 100%; height: auto; margin: 5px 0;">'
+                full_response = full_response.replace(url, img_tag)
+
         # Split the content into multiple messages
-        messages = split_into_messages(response.content)
+        messages = split_into_messages(full_response)
         
         return jsonify({'messages': messages})
     
