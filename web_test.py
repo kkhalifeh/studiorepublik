@@ -21,7 +21,7 @@ app.secret_key = os.urandom(24)
 
 embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
 vectordb = Chroma(persist_directory="./studio_db", embedding_function=embeddings)
-retriever = vectordb.as_retriever(search_kwargs={"k": 3})
+retriever = vectordb.as_retriever(search_kwargs={"k": 5})
 
 conversations = {}
 # llm = ChatAnthropic(model="claude-3-7-sonnet-20250219", temperature=0.7)
