@@ -3,6 +3,7 @@
 from flask import Flask, render_template, request, jsonify, session
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_chroma import Chroma
+from langchain_anthropic import ChatAnthropic
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from langchain_core.runnables import RunnablePassthrough
@@ -22,20 +23,21 @@ vectordb = Chroma(persist_directory="./studio_db", embedding_function=embeddings
 retriever = vectordb.as_retriever(search_kwargs={"k": 3})
 
 conversations = {}
-llm = ChatOpenAI(model_name="gpt-4o", temperature=1)
+# llm = ChatAnthropic(model="claude-3-7-sonnet-20250219", temperature=0.7)
+llm = ChatOpenAI(model_name="gpt-4o", temperature=0.7)
 
 # Dynamic system message with current date
 current_date = datetime.now().strftime("%B %d, %Y")  # e.g., "March 7, 2025"
 system_message = f"""You are Zayn, a friendly and professional AI sales qualifier at StudioRepublik Dubai, located at Exit 41 - Umm Al Sheif, Eiffel Building 1, Sheikh Zayed Road, 8 16th Street, Dubai (Google Maps: https://maps.app.goo.gl/6Tm26dSG17bo4vHS9). Your primary goal is to qualify potential clients, encourage scheduling a facility tour, and collect useful profiling information to help the sales team. Today is {current_date}.
 
 Your conversational priorities are:
-1. SUGGEST A TOUR within the first 2-3 exchanges in the conversation.
+1. SUGGEST A TOUR within the first 2-3 exchanges in the conversation—when they agree, offer available tour slots from Zoho Booking like "I’ve got some slots—how’s tomorrow at 10 AM or 3 PM sound?" and confirm their pick.
 2. If the client shows ANY resistance to scheduling (says "not now", "maybe later", etc.) or ignores your tour suggestion twice, PAUSE suggesting tours and switch to gathering profiling information:
    - Fitness goals and interests
    - Preferred types of workouts or classes
    - Current fitness routine
    - Place of residence or neighborhood (to confirm proximity to StudioRepublik)
-3. Reintroduce a tour suggestion if the client shows renewed interest—like asking about membership details, facility features, or class schedules.
+3. Reintroduce a tour suggestion if the client shows renewed interest—like asking about membership details, facility features, or class schedules—and offer Zoho Booking slots to lock it in.
 
 Guidelines:
 - Be EXTREMELY conversational and casual - as if texting a friend.
@@ -46,11 +48,13 @@ Guidelines:
 - Sound like a real person chatting on WhatsApp, not a formal representative.
 - IMPORTANT: Only use greetings like "Hey" or "Hello" at the very beginning. For follow-ups, respond directly without greetings.
 - NEVER BE PUSHY. If they say "not interested" or ignore your tour suggestion twice, focus on building rapport through conversation instead—ask about their fitness vibe or goals.
-- STICK TO THE PROVIDED CONTEXT—answer with details like location, services, or pricing (e.g., AED 400/month for adults, AED 1,250/term for juniors) when available! If it’s not in the context (e.g., discounts, ClassPass), deflect casually with “I’d have to check with the team—wanna swing by to find out?” or pivot to profiling or a tour.
-- NEVER INVENT DETAILS LIKE DISCOUNTS, FAMILY PACKAGES, OR UNLISTED FEATURES—pricing and perks are sensitive, so only use explicit prices (AED 400/month for Basic, AED 1,250/term for juniors) and defer extras to the sales team with a chill vibe.
+- ALWAYS CHECK THE PROVIDED CONTEXT for answers first—don’t skip details like facility size, class schedules, or policies. If it’s in the context, use it! If uncertain or missing (e.g. ClassPass), deflect casually with “Let me pass you to the team—they’ll sort it!” or pivot to profiling or a tour.
+- NEVER INVENT DETAILS LIKE DISCOUNTS, FAMILY PACKAGES, OR UNLISTED FEATURES—pricing and perks are sensitive, so only use explicit prices (AED 400/month for Basic, AED 1,250/term for juniors) and defer extras to the team with a chill vibe.
 - ALWAYS SHARE THE LOCATION (Exit 41 - Umm Al Sheif, Eiffel Building 1, Sheikh Zayed Road, 8 16th Street, Dubai) when asked—it’s critical!
+- IF ASKED ABOUT INFO YOU CAN’T PROVIDE (e.g., booking junior assessments, classes, or unlisted details), transfer the chat with “Let me pass you to the team—they’ll sort it!”
 - For junior term questions, use today’s date ({current_date}) to determine the current term by comparing it to the term dates in the context—stick to the exact term start and end dates! If the date falls between a term’s start and end, that’s the current term!
 - Do not format your response with paragraph breaks—I’ll split it by sentences.
+
 Here's information about StudioRepublik that you can refer to:
 """
 
@@ -157,6 +161,52 @@ def chat():
         print(f"Error processing message: {str(e)}")
         return jsonify({'messages': ["I'm having trouble processing your request right now. Let me get that fixed!"]})
 
+# @app.route('/chat', methods=['POST'])
+# def chat():
+#     user_message = request.json.get('message', '')
+    
+#     # Get session ID
+#     session_id = session.get('session_id')
+#     if not session_id or session_id not in conversations:
+#         session['session_id'] = str(uuid.uuid4())
+#         session_id = session['session_id']
+#         conversations[session_id] = [
+#             SystemMessage(content=system_message + format_docs(retriever.get_relevant_documents("")))
+#         ]
+    
+#     # Get conversation history
+#     conversation = conversations[session_id]
+    
+#     # Add user message to history
+#     conversation.append(HumanMessage(content=user_message))
+    
+#     try:
+#         # Get relevant documents
+#         docs = retriever.get_relevant_documents(user_message)
+#         context = format_docs(docs)
+        
+#         # Instead of adding a new system message, create a temporary conversation copy with updated context
+#         temp_conversation = conversation.copy()
+        
+#         # Update the first system message with new context
+#         if temp_conversation and isinstance(temp_conversation[0], SystemMessage):
+#             temp_conversation[0] = SystemMessage(content=system_message + context)
+        
+#         # Process with LLM using the temporary conversation
+#         response = llm.invoke(temp_conversation)
+        
+#         # Add AI response to the original conversation history
+#         conversation.append(AIMessage(content=response.content))
+        
+#         # Split the content into multiple messages
+#         messages = split_into_messages(response.content)
+        
+#         return jsonify({'messages': messages})
+    
+#     except Exception as e:
+#         print(f"Error processing message: {str(e)}")
+#         return jsonify({'messages': ["I'm having trouble processing your request right now. Let me get that fixed!"]})
+        
 if __name__ == '__main__':
     # Make sure templates directory exists
     os.makedirs('templates', exist_ok=True)
