@@ -20,7 +20,8 @@ app = Flask(__name__)
 app.secret_key = os.urandom(24)
 
 embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
-vectordb = Chroma(persist_directory="./studio_db", embedding_function=embeddings)
+vectordb = Chroma(persist_directory="./studio_db",
+                  embedding_function=embeddings)
 retriever = vectordb.as_retriever(search_kwargs={"k": 5})
 
 conversations = {}
@@ -32,13 +33,13 @@ current_date = datetime.now().strftime("%B %d, %Y")  # e.g., "March 7, 2025"
 system_message = f"""You are Zayn, a friendly and professional AI sales qualifier at StudioRepublik Dubai, located at Exit 41 - Umm Al Sheif, Eiffel Building 1, Sheikh Zayed Road, 8 16th Street, Dubai (Google Maps: https://maps.app.goo.gl/6Tm26dSG17bo4vHS9). Your primary goal is to qualify potential clients, encourage scheduling a facility tour, and collect useful profiling information to help the sales team. Today is {current_date}.
 
 Your conversational priorities are:
-1. SUGGEST A TOUR within the first 2-3 exchanges in the conversation—when they agree, offer available tour slots from Zoho Booking like "I’ve got some slots—how’s tomorrow at 10 AM or 3 PM sound?" and confirm their pick.
-2. If the person shows ANY resistance to scheduling (says "not now", "maybe later", etc.) OR ignores your tour suggestion ONCE, PAUSE suggesting tours for at least 2 exchanges and switch to gathering profiling information:
+1. SUGGEST A TOUR within the first 2-3 exchanges in the conversation—when they agree, offer available tour slots and confirm their pick.
+2. If the person shows ANY resistance to scheduling OR ignores your tour suggestion ONCE, PAUSE suggesting tours for at least 2 exchanges and switch to gathering profiling information:
    - Fitness goals and interests
    - Preferred types of workouts or classes
    - Current fitness routine
    - Place of residence or neighborhood (to confirm proximity to StudioRepublik)
-3. Reintroduce a tour suggestion after 2 exchanges of profiling OR if the client shows renewed interest—like asking about membership details, facility features, or class schedules—and offer Zoho Booking slots to lock it in.
+3. Reintroduce a tour suggestion after 2 exchanges of profiling OR if the client shows renewed interest—like asking about membership details, facility features, or class schedules—and offer available slots to lock it in.
 4. PROACTIVELY GATHER PROFILING INFORMATION by asking at least one profiling question within the first 3 exchanges, even if they haven’t resisted a tour yet—like "What’s your go-to workout these days?" or "What classes catch your eye?"
 
 Guidelines:
@@ -61,92 +62,101 @@ Here's information about StudioRepublik that you can refer to:
 """
 
 # Format docs function
+
+
 def format_docs(docs):
     return "\n\n".join(doc.page_content for doc in docs)
 
 # Function to manually split a response into multiple messages
+
+
 def split_into_messages(text, max_messages=3):
     import re
-    
+
     # Remove any extra spaces or newlines
     text = text.strip()
-    
+
     # First try to split by double newlines (paragraphs)
     paragraphs = [p.strip() for p in text.split("\n\n") if p.strip()]
-    
+
     if len(paragraphs) >= 2 and len(paragraphs) <= max_messages:
         return paragraphs
-    
+
     # Next try to split by single newlines
     lines = [line.strip() for line in text.split("\n") if line.strip()]
-    
+
     if len(lines) >= 2 and len(lines) <= max_messages:
         return lines
-    
+
     # Finally, split by sentences and group them
     sentences = re.split(r'(?<=[.!?])\s+', text)
     sentences = [s.strip() for s in sentences if s.strip()]
-    
+
     # If we have very few sentences, just return them
     if len(sentences) <= max_messages:
         return sentences
-    
+
     # Group sentences into 2-3 messages
     messages = []
     message_count = min(max_messages, 3)  # Max 3 messages
     sentences_per_message = len(sentences) // message_count
-    
+
     for i in range(message_count):
         start_idx = i * sentences_per_message
-        end_idx = start_idx + sentences_per_message if i < message_count - 1 else len(sentences)
+        end_idx = start_idx + sentences_per_message if i < message_count - \
+            1 else len(sentences)
         message = " ".join(sentences[start_idx:end_idx])
         messages.append(message)
-    
+
     return messages
+
 
 @app.route('/')
 def index():
     # Generate a unique session ID if not exists
     if 'session_id' not in session:
         session['session_id'] = str(uuid.uuid4())
-    
+
     # Initialize conversation history if needed
     session_id = session['session_id']
     if session_id not in conversations:
         conversations[session_id] = [
-            SystemMessage(content=system_message + format_docs(retriever.get_relevant_documents("")))
+            SystemMessage(content=system_message +
+                          format_docs(retriever.get_relevant_documents("")))
         ]
-    
+
     return render_template('index.html')
+
 
 @app.route('/chat', methods=['POST'])
 def chat():
     user_message = request.json.get('message', '')
-    
+
     session_id = session.get('session_id')
     if not session_id or session_id not in conversations:
         session['session_id'] = str(uuid.uuid4())
         session_id = session['session_id']
         conversations[session_id] = [
-            SystemMessage(content=system_message + format_docs(retriever.get_relevant_documents("")))
+            SystemMessage(content=system_message +
+                          format_docs(retriever.get_relevant_documents("")))
         ]
-    
+
     conversation = conversations[session_id]
     conversation.append(HumanMessage(content=user_message))
-    
+
     try:
         docs = retriever.get_relevant_documents(user_message)
         context = format_docs(docs)
         context_message = f"Here's relevant information for the current question: {context}"
-        
+
         conversation.append(SystemMessage(content=context_message))
         response = llm.invoke(conversation)
         conversation.append(AIMessage(content=response.content))
         conversation.pop(-2)
-        
+
         messages = split_into_messages(response.content)
         return jsonify({'messages': messages})
-    
+
     except Exception as e:
         print(f"Error processing message: {str(e)}")
         return jsonify({'messages': ["I'm having trouble processing your request right now. Let me get that fixed!"]})
@@ -154,7 +164,7 @@ def chat():
 # @app.route('/chat', methods=['POST'])
 # def chat():
 #     user_message = request.json.get('message', '')
-    
+
 #     # Get session ID
 #     session_id = session.get('session_id')
 #     if not session_id or session_id not in conversations:
@@ -163,44 +173,45 @@ def chat():
 #         conversations[session_id] = [
 #             SystemMessage(content=system_message + format_docs(retriever.get_relevant_documents("")))
 #         ]
-    
+
 #     # Get conversation history
 #     conversation = conversations[session_id]
-    
+
 #     # Add user message to history
 #     conversation.append(HumanMessage(content=user_message))
-    
+
 #     try:
 #         # Get relevant documents
 #         docs = retriever.get_relevant_documents(user_message)
 #         context = format_docs(docs)
-        
+
 #         # Instead of adding a new system message, create a temporary conversation copy with updated context
 #         temp_conversation = conversation.copy()
-        
+
 #         # Update the first system message with new context
 #         if temp_conversation and isinstance(temp_conversation[0], SystemMessage):
 #             temp_conversation[0] = SystemMessage(content=system_message + context)
-        
+
 #         # Process with LLM using the temporary conversation
 #         response = llm.invoke(temp_conversation)
-        
+
 #         # Add AI response to the original conversation history
 #         conversation.append(AIMessage(content=response.content))
-        
+
 #         # Split the content into multiple messages
 #         messages = split_into_messages(response.content)
-        
+
 #         return jsonify({'messages': messages})
-    
+
 #     except Exception as e:
 #         print(f"Error processing message: {str(e)}")
 #         return jsonify({'messages': ["I'm having trouble processing your request right now. Let me get that fixed!"]})
-        
+
+
 if __name__ == '__main__':
     # Make sure templates directory exists
     os.makedirs('templates', exist_ok=True)
-    
+
     # Create HTML template
     with open('templates/index.html', 'w') as f:
         f.write('''
@@ -389,5 +400,5 @@ if __name__ == '__main__':
 </body>
 </html>
         ''')
-    
+
     app.run(debug=True, port=5000)
