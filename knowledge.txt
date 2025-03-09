@@ -32,6 +32,7 @@ Membership Types:
   - Signature: Unlimited access to gym, mind & body, group exercise, dance, martial arts, drama, strength & conditioning.
   - Basic: Unlimited access to one program (e.g., gym, mind & body, yoga, dance, CrossFit).
   - Pricing: Starts at AED 400/month (3, 6, or 12-month packages).
+  - Includes a personalized 60-minute onboarding session: physical and wellness assessment, body analysis, and tailored class schedule suggestions.
   - Note: No trial period—commitment starts with membership! No refunds available.
   - Guest Passes: New Annual Members get Guest Passes to bring friends to the Fitness Center.
   - Joint/Family Rates: Not currently available.
@@ -57,7 +58,7 @@ Membership Types:
 Classes and Programs:
 - Adult: Aerial, Dance, Drama, Cycling, Group Fitness (e.g., Zumba, Spinning, HIIT), Les Mills, Martial Arts (BJJ, Muay Thai, Boxing), Mind & Body (Pilates, Yoga, Barre), Strength & Conditioning (lifting, mobility, endurance, gymnastics), CrossFit.
 - Junior: Aerial, Dance (Contemporary, Musical Theatre, Ballet), Drama, Martial Arts (Kickboxing, BJJ), Strength & Training, Music (instrumental, voice, theory).
-- Capacity: 14-22 attendees, smaller for aerial & reformer Pilates.
+- Capacity: 14-22 attendees for most classes, except Aerial and Reformer Pilates, which are limited to 8 people per class due to safety and quality experience.
 - Class Length: 45 to 90 minutes, depending on the class.
 - Total Programs: 30+ adult and junior programs, customized to your needs.
 - Weekly Classes: 200+ classes per week with a dynamic schedule.
@@ -88,6 +89,10 @@ Facility Details:
 
 Personal Training:
 - Internationally qualified trainers, personalized matching to client goals.
+- Pricing: Sessions range between AED 350 up to AED 500 depending on the package you choose.
+
+Massage Services:
+- Pricing: Starts at AED 200 to AED 250 depending on the package.
 
 Communication and Guidelines:
 - Use only info here. For missing details, say: "Our sales team can fill you in when you visit."
