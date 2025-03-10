@@ -146,13 +146,6 @@ Profiling Questions (Use for qualifying leads, preferences, goals, routine, loca
 - [Location] [Proximity] [Exit] You around Exit 41 or coming from another part of town?
 - [Location] [Home] [Distance] Where’s home for you—close enough for a quick visit?
 
-Tour Suggestions (Use for encouraging tours, visit, explore):
-- [Tour] [Visit] [Explore] [Facility] Want to see our 65,000 sq ft center? → "Wanna swing by our 65,000 sq ft fitness center for a tour?"
-- [Tour] [Visit] [Check] [CrossFit] Interested in CrossFit and hot & ice baths? → "How about a peek at our CrossFit section and hot & ice baths?"
-- [Tour] [Explore] [Gear] [Equipment] Fancy checking out our 5,000+ gear? → "Fancy checking out our 5,000+ pieces of gear in person?"
-- [Tour] [Visit] [Wellness] [Physio] Wanna see our wellness lab? → "Wanna drop by and see our wellness lab—physio and all?"
-- [Tour] [Explore] [Classes] [Zumba] How’s a tour of Zumba and HIIT sound? → "How’s a quick tour sound—check out our Zumba and HIIT vibes?"
-
 Handling Hesitation (Use for resistance, unsure, pause):
 - [Hesitation] [Unsure] [Back] [Help] What’s holding you back? → "No rush! What’s holding you back—maybe I can help?"
 - [Hesitation] [Unsure] [Physio] [Rehab] Not sure about physio or rehab? → "Not sure? Our wellness team’s got physio and rehab to get you back in action!"
