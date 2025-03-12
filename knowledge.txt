@@ -60,6 +60,7 @@ Membership Types:
 
 Classes and Programs:
 - Adult: Aerial (females only - Men cannot do Aerial classes), Dance, Drama, Cycling, Group Fitness (e.g., Zumba, Spinning, HIIT), Les Mills, Martial Arts (BJJ, Muay Thai, Boxing), Mind & Body (Pilates, Yoga, Barre), Strength & Conditioning (lifting, mobility, endurance, gymnastics), CrossFit.
+- Aerial Classes are for females only. Unfortuately, our Aerial classes are not mixed.
 - Junior: Aerial, Dance (Contemporary, Musical Theatre, Ballet), Drama, Martial Arts (Kickboxing, BJJ), Strength & Training, Music (instrumental, voice, theory).
 - Capacity: 14-22 attendees for most classes, except Aerial and Reformer Pilates, which are limited to 8 people per class due to safety and quality experience.
 - Class Length: 45 to 90 minutes, depending on the class.
