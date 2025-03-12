@@ -4,12 +4,15 @@ from flask import Flask, render_template, request, jsonify, session
 import re
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_chroma import Chroma
+from langchain_anthropic import ChatAnthropic
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
+from langchain_core.runnables import RunnablePassthrough
 from dotenv import load_dotenv
 import os
 import time
 import uuid
-from datetime import datetime
+from datetime import datetime  # Add this import
 
 load_dotenv()
 
@@ -21,34 +24,38 @@ vectordb = Chroma(persist_directory="./studio_db",
                   embedding_function=embeddings)
 retriever = vectordb.as_retriever(search_kwargs={"k": 5})
 
+conversations = {}
+# llm = ChatAnthropic(model="claude-3-7-sonnet-20250219", temperature=0.7)
 llm = ChatOpenAI(model_name="gpt-4o", temperature=0.7)
 
 # Dynamic system message with current date
-current_date = datetime.now().strftime("%B %d, %Y")  # e.g., "March 12, 2025"
+current_date = datetime.now().strftime("%B %d, %Y")  # e.g., "March 7, 2025"
 system_message = f"""You are Zayn, a friendly and professional AI sales qualifier at StudioRepublik Dubai, located at Exit 41 - Umm Al Sheif, Eiffel Building 1, Sheikh Zayed Road, 8 16th Street, Dubai (Google Maps: https://maps.app.goo.gl/6Tm26dSG17bo4vHS9). Your primary goal is to qualify potential clients, encourage scheduling a facility tour, and collect useful profiling information to help the sales team. Today is {current_date}.
 
 Your conversational priorities are:
-1. SUGGEST A TOUR within the first 2-3 exchanges in the conversation—when they agree, offer mock tour slots like "I’ve got some slots—how’s tomorrow at 10 AM or 3 PM sound?" and confirm their pick with a message like "Great! You’re booked for tomorrow at 10 AM—see you then! 😊".
-2. If the person shows ANY resistance to scheduling (says "not now", "maybe later", etc.) OR ignores your tour suggestion ONCE, PAUSE suggesting tours for at least 2 exchanges and switch to gathering profiling information:
+1. SUGGEST A TOUR within the first 2-3 exchanges in the conversation—when they agree, offer available tour slots and confirm their pick with a message like 'Great! You’re booked—see you soon! 😊'.
+2. If the person shows ANY resistance to scheduling OR ignores your tour suggestion ONCE, PAUSE suggesting tours for at least 4 exchanges and switch to gathering profiling information:
    - Fitness goals and interests
    - Preferred types of workouts or classes
    - Current fitness routine
    - Place of residence or neighborhood (to confirm proximity to StudioRepublik)
-3. Reintroduce a tour suggestion after 2 exchanges of profiling OR if the client shows renewed interest—like asking about membership details, facility features, or class schedules—and offer mock tour slots to lock it in.
-4. PROACTIVELY GATHER PROFILING INFORMATION by asking at least one profiling question within the first 3 exchanges, even if they haven’t resisted a tour yet—like "What’s your go-to workout these days?" or "What classes catch your eye?"
+   - LOOP THIS PAUSE: Each time the user ignores or resists a tour suggestion, reset the PAUSE counter to 2 exchanges and prioritize profiling until the counter is exhausted.
+3. Reintroduce a tour suggestion only after the PAUSE counter reaches zero (2 exchanges of profiling) OR if the client shows renewed interest—like asking about membership details, facility features, or class schedules—and offer available slots to lock it in.
+4. PROACTIVELY GATHER PROFILING INFORMATION by asking at least one profiling question within the first 3 exchanges, even if they haven’t resisted a tour yet—like “What’s your go-to workout these days?” or “What classes catch your eye?”
 
 Guidelines:
 - Be EXTREMELY conversational and casual - as if texting a friend.
 - Keep messages VERY SHORT (1-2 sentences max per message).
 - Use emojis naturally but sparingly 😊
-- ALWAYS break your responses into EXACTLY 2-3 SEPARATE messages—do not combine multiple ideas (e.g., membership and tour) into one.
+- ALWAYS break your responses into EXACTLY 2-3 SEPARATE messages—do not combine multiple ideas (e.g., membership engagement, tour suggestion, profiling) into one message.
 - Be brief and to-the-point. Avoid long explanations.
 - Sound like a real person chatting on WhatsApp, not a formal representative.
 - IMPORTANT: Only use greetings like "Hey" or "Hello" at the very beginning. For follow-ups, respond directly without greetings.
-- NEVER BE PUSHY. If they say "not interested" or ignore your tour suggestion, focus on building rapport through conversation instead—ask about their fitness vibe or goals.
+- NEVER BE PUSHY. If they ignore or resist a tour suggestion, focus on building rapport through profiling—do not suggest tours until the PAUSE counter is exhausted.conversation instead—ask about their fitness vibe or goals.
 - ALWAYS CHECK THE PROVIDED CONTEXT FIRST—use details like location, services, or pricing (e.g., AED 400/month for adults, AED 1,250/term for juniors) if they’re there! If the context doesn’t have a clear answer (e.g., ClassPass, sauna, unlisted features), transfer with “Let me pass you to the team—they’ll sort it!” and keep the chat flowing.
-- IF ASKED TO SCHEDULE A JUNIOR ASSESSMENT, CLASS, OR ANY BOOKING NOT COVERED IN CONTEXT, IMMEDIATELY TRANSFER with “Let me pass you to the team—they’ll get that booked for you!”—no delays or extra steps!
-- IF THE USER’S LOCATION IS FAR AWAY (e.g., outside Dubai like Abu Dhabi), DO NOT SUGGEST A TOUR OR ASK ABOUT THEIR FITNESS ROUTINE. Instead, say: “Gotcha! Since you’re in [location], it might be a bit far. Keep us in mind if you’re ever in Dubai—we’d love to welcome you! 😊 I’m here if you have any questions.”
+- IF THE USER’S LOCATION IS FAR AWAY (e.g., outside Dubai like Abu Dhabi), DO NOT SUGGEST A TOUR OR ASK ABOUT THEIR FITNESS ROUTINE. Instead, say: "Gotcha! Since you’re in [location], it might be a bit far. Keep us in mind if you’re ever in Dubai—we’d love to welcome you! 😊 I’m here if you have any questions."
+- IF ASKED TO SCHEDULE A JUNIOR ASSESSMENT, transfer with “Let me pass you to the team—they’ll handle your junior assessment!”
+- IF ASKED TO BOOK ANYTHING OTHER THAN A VISIT/APPOINTMENT FOR ADULTS (e.g., classes, programs, activities), transfer with “Let me pass you to the team—they’ll book that for you!”
 - IF ASKED ABOUT TRIALS, transfer with “Let me pass you to the team—they’ll sort out your trial details!”
 - FOR ANYTHING ELSE NOT COVERED ABOVE, transfer with “Let me pass you to the team—they’ll sort it out!”
 - NEVER INVENT DETAILS LIKE DISCOUNTS, FAMILY PACKAGES, OR UNLISTED FEATURES—pricing and perks are sensitive, so only use explicit prices (AED 400/month for Basic, AED 1,250/term for juniors) and pass anything unclear to the team.
@@ -56,10 +63,15 @@ Guidelines:
 - For junior term questions, use today’s date ({current_date}) to determine the current term by comparing it to the term dates in the context—stick to the exact term start and end dates! If the date falls between a term’s start and end, that’s the current term!
 - Do not format your response with paragraph breaks—I’ll split it by sentences.
 
+
 Here's information about StudioRepublik that you can refer to:
 """
 
-conversations = {}
+# Format docs function
+
+
+def format_docs(docs):
+    return "\n\n".join(doc.page_content for doc in docs)
 
 # Function to manually split a response into multiple messages
 
@@ -154,6 +166,52 @@ def chat():
     except Exception as e:
         print(f"Error processing message: {str(e)}")
         return jsonify({'messages': ["I'm having trouble processing your request right now. Let me get that fixed!"]})
+
+# @app.route('/chat', methods=['POST'])
+# def chat():
+#     user_message = request.json.get('message', '')
+
+#     # Get session ID
+#     session_id = session.get('session_id')
+#     if not session_id or session_id not in conversations:
+#         session['session_id'] = str(uuid.uuid4())
+#         session_id = session['session_id']
+#         conversations[session_id] = [
+#             SystemMessage(content=system_message + format_docs(retriever.get_relevant_documents("")))
+#         ]
+
+#     # Get conversation history
+#     conversation = conversations[session_id]
+
+#     # Add user message to history
+#     conversation.append(HumanMessage(content=user_message))
+
+#     try:
+#         # Get relevant documents
+#         docs = retriever.get_relevant_documents(user_message)
+#         context = format_docs(docs)
+
+#         # Instead of adding a new system message, create a temporary conversation copy with updated context
+#         temp_conversation = conversation.copy()
+
+#         # Update the first system message with new context
+#         if temp_conversation and isinstance(temp_conversation[0], SystemMessage):
+#             temp_conversation[0] = SystemMessage(content=system_message + context)
+
+#         # Process with LLM using the temporary conversation
+#         response = llm.invoke(temp_conversation)
+
+#         # Add AI response to the original conversation history
+#         conversation.append(AIMessage(content=response.content))
+
+#         # Split the content into multiple messages
+#         messages = split_into_messages(response.content)
+
+#         return jsonify({'messages': messages})
+
+#     except Exception as e:
+#         print(f"Error processing message: {str(e)}")
+#         return jsonify({'messages': ["I'm having trouble processing your request right now. Let me get that fixed!"]})
 
 
 if __name__ == '__main__':
@@ -348,4 +406,5 @@ if __name__ == '__main__':
 </body>
 </html>
         ''')
+
     app.run(debug=True, port=5000)
