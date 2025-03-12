@@ -10,8 +10,9 @@ import os
 import time
 import uuid
 from datetime import datetime
-import asyncio  # New import for async handling
-from threading import Lock  # New import for thread-safe message buffering
+import asyncio
+from threading import Lock
+from functools import partial  # New import for timer callbacks
 
 load_dotenv()
 
@@ -26,7 +27,11 @@ retriever = vectordb.as_retriever(search_kwargs={"k": 5})
 conversations = {}
 llm = ChatOpenAI(model_name="gpt-4o", temperature=0.7)
 
-# Dynamic system message with current date
+# Message buffer and timer management
+message_buffers = {}
+buffer_locks = {}
+timers = {}
+
 current_date = datetime.now().strftime("%B %d, %Y")
 system_message = f"""You are Zayn, a friendly and professional AI sales qualifier at StudioRepublik Dubai, located at Exit 41 - Umm Al Sheif, Eiffel Building 1, Sheikh Zayed Road, 8 16th Street, Dubai (Google Maps: https://maps.app.goo.gl/6Tm26dSG17bo4vHS9). Your primary goal is to qualify potential clients, encourage scheduling a facility tour, and collect useful profiling information to help the sales team. Today is {current_date}.
 
@@ -62,10 +67,6 @@ Guidelines:
 Here's information about StudioRepublik that you can refer to:
 """
 
-# Message buffer and lock for bundling messages
-message_buffers = {}
-buffer_locks = {}
-
 
 def format_docs(docs):
     return "\n\n".join(doc.page_content for doc in docs)
@@ -94,6 +95,38 @@ def split_into_messages(text, max_messages=3):
         message = " ".join(sentences[start_idx:end_idx])
         messages.append(message)
     return messages
+
+
+async def process_buffered_messages(session_id):
+    with buffer_locks[session_id]:
+        if not message_buffers[session_id]:
+            return
+        bundled_messages = "\n".join(message_buffers[session_id])
+        message_buffers[session_id] = []  # Clear buffer
+
+    conversation = conversations[session_id]
+    conversation.append(HumanMessage(content=bundled_messages))
+
+    try:
+        docs = retriever.get_relevant_documents(bundled_messages)
+        context = format_docs(docs)
+        context_message = f"Here's relevant information for the current question: {context}"
+        conversation.append(SystemMessage(content=context_message))
+        response = llm.invoke(conversation)
+        conversation.append(AIMessage(content=response.content))
+        conversation.pop(-2)
+
+        messages = split_into_messages(response.content)
+        # Simulate sending response back (in a real app, this could be a websocket push)
+        print(f"Sending bundled response for {session_id}: {messages}")
+        # For this Flask setup, we'll store the response and let the client poll or wait
+        conversations[session_id].append(
+            AIMessage(content="\n".join(messages)))
+
+    except Exception as e:
+        print(f"Error processing bundled message: {str(e)}")
+        conversations[session_id].append(AIMessage(
+            content="I'm having trouble processing your request right now. Let me get that fixed!"))
 
 
 @app.route('/')
@@ -128,42 +161,23 @@ async def chat():
     if session_id not in message_buffers:
         message_buffers[session_id] = []
         buffer_locks[session_id] = Lock()
+        timers[session_id] = None
 
     # Add message to buffer
     with buffer_locks[session_id]:
         message_buffers[session_id].append(user_message)
-        last_message_time = time.time()
 
-    # Wait 5 seconds, checking for new messages
-    await asyncio.sleep(10)
+    # Cancel existing timer if it exists
+    if timers[session_id]:
+        timers[session_id].cancel()
 
-    # Process all buffered messages
-    with buffer_locks[session_id]:
-        if time.time() - last_message_time >= 10:  # Ensure 5 seconds have passed since last message
-            bundled_messages = "\n".join(message_buffers[session_id])
-            message_buffers[session_id] = []  # Clear buffer after processing
-        else:
-            # Another message came in, wait again
-            return jsonify({'messages': []})
+    # Schedule new timer to process messages after 5 seconds
+    loop = asyncio.get_event_loop()
+    timers[session_id] = loop.call_later(
+        5, lambda: asyncio.run(process_buffered_messages(session_id)))
 
-    conversation = conversations[session_id]
-    conversation.append(HumanMessage(content=bundled_messages))
-
-    try:
-        docs = retriever.get_relevant_documents(bundled_messages)
-        context = format_docs(docs)
-        context_message = f"Here's relevant information for the current question: {context}"
-        conversation.append(SystemMessage(content=context_message))
-        response = llm.invoke(conversation)
-        conversation.append(AIMessage(content=response.content))
-        conversation.pop(-2)
-
-        messages = split_into_messages(response.content)
-        return jsonify({'messages': messages})
-
-    except Exception as e:
-        print(f"Error processing message: {str(e)}")
-        return jsonify({'messages': ["I'm having trouble processing your request right now. Let me get that fixed!"]})
+    # Return empty response immediately; client waits for bundled reply
+    return jsonify({'messages': []})
 
 # @app.route('/chat', methods=['POST'])
 # def chat():
