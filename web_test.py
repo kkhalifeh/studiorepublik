@@ -4,15 +4,14 @@ from flask import Flask, render_template, request, jsonify, session
 import re
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_chroma import Chroma
-from langchain_anthropic import ChatAnthropic
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
-from langchain_core.runnables import RunnablePassthrough
 from dotenv import load_dotenv
 import os
 import time
 import uuid
-from datetime import datetime  # Add this import
+from datetime import datetime
+import asyncio  # New import for async handling
+from threading import Lock  # New import for thread-safe message buffering
 
 load_dotenv()
 
@@ -25,11 +24,10 @@ vectordb = Chroma(persist_directory="./studio_db",
 retriever = vectordb.as_retriever(search_kwargs={"k": 5})
 
 conversations = {}
-# llm = ChatAnthropic(model="claude-3-7-sonnet-20250219", temperature=0.7)
 llm = ChatOpenAI(model_name="gpt-4o", temperature=0.7)
 
 # Dynamic system message with current date
-current_date = datetime.now().strftime("%B %d, %Y")  # e.g., "March 7, 2025"
+current_date = datetime.now().strftime("%B %d, %Y")
 system_message = f"""You are Zayn, a friendly and professional AI sales qualifier at StudioRepublik Dubai, located at Exit 41 - Umm Al Sheif, Eiffel Building 1, Sheikh Zayed Road, 8 16th Street, Dubai (Google Maps: https://maps.app.goo.gl/6Tm26dSG17bo4vHS9). Your primary goal is to qualify potential clients, encourage scheduling a facility tour, and collect useful profiling information to help the sales team. Today is {current_date}.
 
 Your conversational priorities are:
@@ -61,81 +59,61 @@ Guidelines:
 - ALWAYS SHARE THE LOCATION (Exit 41 - Umm Al Sheif, Eiffel Building 1, Sheikh Zayed Road, 8 16th Street, Dubai) when asked—it’s critical!
 - For junior term questions, use today’s date ({current_date}) to determine the current term by comparing it to the term dates in the context—stick to the exact term start and end dates! If the date falls between a term’s start and end, that’s the current term!
 - Do not format your response with paragraph breaks—I’ll split it by sentences.
-
-
 Here's information about StudioRepublik that you can refer to:
 """
 
-# Format docs function
+# Message buffer and lock for bundling messages
+message_buffers = {}
+buffer_locks = {}
 
 
 def format_docs(docs):
     return "\n\n".join(doc.page_content for doc in docs)
 
-# Function to manually split a response into multiple messages
-
 
 def split_into_messages(text, max_messages=3):
     import re
-
-    # Remove any extra spaces or newlines
     text = text.strip()
-
-    # First try to split by double newlines (paragraphs)
     paragraphs = [p.strip() for p in text.split("\n\n") if p.strip()]
-
     if len(paragraphs) >= 2 and len(paragraphs) <= max_messages:
         return paragraphs
-
-    # Next try to split by single newlines
     lines = [line.strip() for line in text.split("\n") if line.strip()]
-
     if len(lines) >= 2 and len(lines) <= max_messages:
         return lines
-
-    # Finally, split by sentences and group them
     sentences = re.split(r'(?<=[.!?])\s+', text)
     sentences = [s.strip() for s in sentences if s.strip()]
-
-    # If we have very few sentences, just return them
     if len(sentences) <= max_messages:
         return sentences
-
-    # Group sentences into 2-3 messages
     messages = []
-    message_count = min(max_messages, 3)  # Max 3 messages
+    message_count = min(max_messages, 3)
     sentences_per_message = len(sentences) // message_count
-
     for i in range(message_count):
         start_idx = i * sentences_per_message
         end_idx = start_idx + sentences_per_message if i < message_count - \
             1 else len(sentences)
         message = " ".join(sentences[start_idx:end_idx])
         messages.append(message)
-
     return messages
 
 
 @app.route('/')
 def index():
-    # Generate a unique session ID if not exists
     if 'session_id' not in session:
         session['session_id'] = str(uuid.uuid4())
-
-    # Initialize conversation history if needed
     session_id = session['session_id']
     if session_id not in conversations:
         conversations[session_id] = [
             SystemMessage(content=system_message +
                           format_docs(retriever.get_relevant_documents("")))
         ]
-
     return render_template('index.html')
 
 
 @app.route('/chat', methods=['POST'])
-def chat():
-    user_message = request.json.get('message', '')
+async def chat():
+    user_message = request.json.get('message', '').strip()
+    if not user_message:
+        return jsonify({'messages': []})
 
     session_id = session.get('session_id')
     if not session_id or session_id not in conversations:
@@ -146,14 +124,35 @@ def chat():
                           format_docs(retriever.get_relevant_documents("")))
         ]
 
+    # Initialize buffer and lock if not present
+    if session_id not in message_buffers:
+        message_buffers[session_id] = []
+        buffer_locks[session_id] = Lock()
+
+    # Add message to buffer
+    with buffer_locks[session_id]:
+        message_buffers[session_id].append(user_message)
+        last_message_time = time.time()
+
+    # Wait 5 seconds, checking for new messages
+    await asyncio.sleep(5)
+
+    # Process all buffered messages
+    with buffer_locks[session_id]:
+        if time.time() - last_message_time >= 5:  # Ensure 5 seconds have passed since last message
+            bundled_messages = "\n".join(message_buffers[session_id])
+            message_buffers[session_id] = []  # Clear buffer after processing
+        else:
+            # Another message came in, wait again
+            return jsonify({'messages': []})
+
     conversation = conversations[session_id]
-    conversation.append(HumanMessage(content=user_message))
+    conversation.append(HumanMessage(content=bundled_messages))
 
     try:
-        docs = retriever.get_relevant_documents(user_message)
+        docs = retriever.get_relevant_documents(bundled_messages)
         context = format_docs(docs)
         context_message = f"Here's relevant information for the current question: {context}"
-
         conversation.append(SystemMessage(content=context_message))
         response = llm.invoke(conversation)
         conversation.append(AIMessage(content=response.content))
