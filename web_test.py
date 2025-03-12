@@ -135,11 +135,11 @@ async def chat():
         last_message_time = time.time()
 
     # Wait 5 seconds, checking for new messages
-    await asyncio.sleep(5)
+    await asyncio.sleep(10)
 
     # Process all buffered messages
     with buffer_locks[session_id]:
-        if time.time() - last_message_time >= 5:  # Ensure 5 seconds have passed since last message
+        if time.time() - last_message_time >= 10:  # Ensure 5 seconds have passed since last message
             bundled_messages = "\n".join(message_buffers[session_id])
             message_buffers[session_id] = []  # Clear buffer after processing
         else:
