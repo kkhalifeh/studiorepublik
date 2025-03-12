@@ -128,14 +128,13 @@ def process_buffered_messages(session_id):
 
 @app.route('/')
 def index():
-    if 'session_id' not in session:
-        session['session_id'] = str(uuid.uuid4())
+    # Force a new session ID on every page load
+    session['session_id'] = str(uuid.uuid4())
     session_id = session['session_id']
-    if session_id not in conversations:
-        conversations[session_id] = [
-            SystemMessage(content=system_message +
-                          format_docs(retriever.get_relevant_documents("")))
-        ]
+    conversations[session_id] = [
+        SystemMessage(content=system_message +
+                      format_docs(retriever.get_relevant_documents("")))
+    ]
     return render_template('index.html')
 
 
