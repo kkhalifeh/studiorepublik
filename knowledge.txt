@@ -31,7 +31,7 @@ Branch Information:
 Membership Types:
 - Adult Membership:
   - Premium: Unlimited access to gym, reformer Pilates, aerial, music, mind & body (Pilates, yoga, barre), group fitness, dance, martial arts (BJJ, Muay Thai, boxing), drama, strength & conditioning, CrossFit.
-  - Signature: Unlimited access to gym, mind & body, group exercise, dance, martial arts, drama, strength & conditioning.
+  - Signature: Unlimited access to gym, mind & body, group exercise, dance, martial arts, drama, strength & conditioning, CrossFit.
   - Basic: Unlimited access to one program (e.g., gym, mind & body, yoga, dance, CrossFit).
   - Pricing: Starts at AED 400/month for 3, 6, or 12-month packages only (no one-month memberships available). 
   - Period: Billing can monthly, but the commitment must be for 3, 6, or 12 months.
