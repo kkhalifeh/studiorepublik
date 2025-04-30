@@ -155,6 +155,8 @@ def index():
     return render_template('index.html')
 
 
+# In web_test.py
+
 @app.route('/chat', methods=['POST'])
 def chat():
     user_message = request.json.get('message', '').strip()
@@ -184,12 +186,12 @@ def chat():
     timers[session_id] = Timer(5, process_buffered_messages, args=[session_id])
     timers[session_id].start()
 
-    return jsonify({'messages': []})
+    return jsonify({'messages': [], 'session_id': session_id})  # Return session ID
 
 
 @app.route('/poll', methods=['GET'])
 def poll():
-    session_id = session.get('session_id')
+    session_id = request.args.get('session_id', session.get('session_id'))
     if not session_id or session_id not in pending_responses:
         return jsonify({'messages': []})
 
@@ -200,7 +202,7 @@ def poll():
             return jsonify({'messages': messages})
     return jsonify({'messages': []})
 
-
+# In web_test.py, update the index.html template
 if __name__ == '__main__':
     os.makedirs('templates', exist_ok=True)
     with open('templates/index.html', 'w') as f:
@@ -241,6 +243,8 @@ if __name__ == '__main__':
     </div>
 
     <script>
+        let sessionId = null;
+
         function appendMessage(text, isUser) {
             const chatContainer = document.getElementById('chatContainer');
             const messageElement = document.createElement('div');
@@ -269,36 +273,53 @@ if __name__ == '__main__':
             showTypingIndicator();
 
             try {
-                await fetch('/chat', {
+                const response = await fetch('/chat', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ message: userMessage })
                 });
+                const data = await response.json();
+                sessionId = data.session_id;  // Store the session ID
+                console.log('Sent message to /chat, session ID:', sessionId);
                 pollForResponse();  // Start polling after sending
             } catch (error) {
                 hideTypingIndicator();
                 appendMessage("I'm having trouble connecting right now. Please try again later.", false);
-                console.error('Error:', error);
+                console.error('Error sending message to /chat:', error);
             }
         }
 
-        async function pollForResponse() {
-            const response = await fetch('/poll', { method: 'GET' });
-            const data = await response.json();
-
-            if (data.messages && data.messages.length > 0) {
+        async function pollForResponse(attempts = 0, maxAttempts = 10) {
+            if (attempts >= maxAttempts) {
                 hideTypingIndicator();
-                for (let i = 0; i < data.messages.length; i++) {
-                    if (i > 0) {
-                        showTypingIndicator();
-                        await new Promise(resolve => setTimeout(resolve, 1000));
-                        hideTypingIndicator();
+                appendMessage("Sorry, I couldn't get a response in time. Please try again!", false);
+                console.log('Polling timed out after', maxAttempts, 'attempts');
+                return;
+            }
+
+            try {
+                const response = await fetch('/poll?session_id=' + sessionId, { method: 'GET' });
+                const data = await response.json();
+                console.log('Poll attempt', attempts + 1, 'session ID:', sessionId, 'data:', data);
+
+                if (data.messages && data.messages.length > 0) {
+                    hideTypingIndicator();
+                    for (let i = 0; i < data.messages.length; i++) {
+                        if (i > 0) {
+                            showTypingIndicator();
+                            await new Promise(resolve => setTimeout(resolve, 1000));
+                            hideTypingIndicator();
+                        }
+                        appendMessage(data.messages[i], false);
+                        await new Promise(resolve => setTimeout(resolve, 300));
                     }
-                    appendMessage(data.messages[i], false);
-                    await new Promise(resolve => setTimeout(resolve, 300));
+                } else {
+                    setTimeout(() => pollForResponse(attempts + 1, maxAttempts), 1000);  // Poll every 1 second
                 }
-            } else {
-                setTimeout(pollForResponse, 1000);  # Poll every 1 second
+            } catch (error) {
+                hideTypingIndicator();
+                appendMessage("Error polling for response. Please try again!", false);
+                console.error('Error polling /poll:', error);
             }
         }
     </script>
