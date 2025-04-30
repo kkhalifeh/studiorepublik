@@ -10,12 +10,17 @@ import os
 import time
 import uuid
 from datetime import datetime
-from threading import Lock, Timer  # Use Timer instead of asyncio
+from threading import Lock, Timer
+import logging
 
 load_dotenv()
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
+
+# Set up logging
+logging.basicConfig(level=logging.INFO, filename='nohup.out', filemode='a')
+logger = logging.getLogger(__name__)
 
 embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
 vectordb = Chroma(persist_directory="./studio_db",
@@ -36,7 +41,7 @@ system_message = f"""You are Zayn, a friendly and professional AI sales qualifie
 
 Your conversational priorities are:
 1. GREET THE PERSON AND INTRODUCE YOURSELF in your first response using a conversational tone from the Sample Conversation Starters.
-2. ENGAGE IN NATURAL CONVERSATION by responding to the person’s messages with relevant information from the context about the facility, such as classes, pricing, or location. Do not ask questions unless the person’s message explicitly prompts a follow-up for clarification (e.g., “Are you near Sheikh Zayed Road, close to Exit 41?” if they ask about location, or “How old are your kids?” if they ask about junior programs).
+2 Prosperous conversation with the user by asking relevant follow-up questions based on their input.
 3. INFORM THE PERSON ONLY ONCE that they can come in for a tour if they ask about any of these: Personal Training, Membership Pricing or Class Schedules (e.g., “Do you have personal trainers” or if they ask about location, or “What membership types do you have” or "What are your prices?"). "We can schedule a tour for you at any point—just let me know if you're interested! :blush:". Offer available tour slots when the person confirms a tour by sending. DO NOT INFORM THEM AGAIN EVEN IF THEY ASK ABOUT ANY OF THOSE THINGS. ONLY SUGGEST THE TOUR ONCE. If they decline the tour (e.g., "I don’t have time", "I can’t come", "Not now"), offer the video tour in a friendly tone: "No worries! I can send you a quick video tour of our facilities to give you a feel for the place: https://youtu.be/uyBRBzEUhhA?si=KXF_tkuW2Te0huoZ. Let me know if you’d like to explore other options!"
 4. IF THE PERSON MENTIONS JOINING WITH A PARTNER OR ASKS ABOUT THE "BETTER TOGETHER" MEMBERSHIP PLAN, engage them naturally by following this lead qualification flow in sequence, one step at a time, waiting for their response before proceeding to the next step, while using a conversational tone and generating your own responses based on the intent of each step:
    - First, ask in a casual, friendly way if they are looking to join with a partner or friend, ensuring the question invites a yes or no response.
@@ -51,8 +56,8 @@ Your conversational priorities are:
 5. IF THE PERSON ASKS ABOUT SUMMER ON US:
    - Promote the Summer on Us campaign in a friendly tone: "Right now, we have a special Summer on Us offer where you get 2 months free on your membership purchase!"
    - If they ask about details of the Summer on Us offer (e.g., "Tell me more about the offer", "What are the terms?", "How does it work?"), respond conversationally: "The Summer on Us offer gives you 2 months free on a 12-month commitment and applies to all membership types—Basic, Premium, and Signature!"
-   - If they ask for more information about the facility or membership types (e.g., "What’s included?", "What classes do you offer?”, “What is the difference?”), provide the requested details from the context, and suggest a tour only once if not already offered: "We can schedule a tour for you at any point—just let me know if you're interested! :blush:".
-   - If they show definitive interest in proceeding with the Summer on Us offer (e.g., "I want to sign up", "Sounds good, let’s do it", "I’m interested"), transfer with “Let me pass you to the team—they’ll get you signed up for the Summer on Us offer!” in a friendly tone.
+   - If they ask for more information about the facility or membership types (e.g., "What’s included?", "What classes do you offer?", "What is the difference?"), provide the requested details from the context, and suggest a tour only once if not already offered: "We can schedule a tour for you at any point—just let me know if you're interested! :blush:".
+   - If they show definitive interest in proceeding with the Summer on Us offer (e.g., "I want to sign up", "Sounds good, let’s do it", "I’m interested"), transfer with "Let me pass you to the team—they’ll get you signed up for the Summer on Us offer!" in a friendly tone.
 
 Guidelines:
 - Be EXTREMELY conversational and casual - as if texting a person.
@@ -120,22 +125,22 @@ def process_buffered_messages(session_id):
     conversation.append(HumanMessage(content=bundled_messages))
 
     try:
-        docs = retriever.get_relevant_documents(bundled_messages)
+        docs = retriever.invoke(bundled_messages)  # Updated to use invoke
         context = format_docs(docs)
         context_message = f"Here's relevant information for the current question: {context}"
         conversation.append(SystemMessage(content=context_message))
         response = llm.invoke(conversation)
         conversation.append(AIMessage(content=response.content))
-        conversation.pop(-2)
+        conversation.pop(-2)  # Remove context message
 
         messages = split_into_messages(response.content)
         pending_responses[session_id] = messages  # Store for polling
-        print(f"Bundled response for {session_id}: {messages}")
+        logger.info(f"Bundled response for {session_id}: {messages}")
 
     except Exception as e:
-        print(f"Error processing bundled message: {str(e)}")
+        logger.error(f"Error processing bundled message: {str(e)}")
         pending_responses[session_id] = [
-            "I'm having trouble processing your request right now. Let me get that fixed!"]
+            f"Sorry, I couldn't process your request due to an error: {str(e)}"]
 
 
 @app.route('/')
@@ -145,7 +150,7 @@ def index():
     session_id = session['session_id']
     conversations[session_id] = [
         SystemMessage(content=system_message +
-                      format_docs(retriever.get_relevant_documents("")))
+                      format_docs(retriever.invoke("")))
     ]
     return render_template('index.html')
 
@@ -162,7 +167,7 @@ def chat():
         session_id = session['session_id']
         conversations[session_id] = [
             SystemMessage(content=system_message +
-                          format_docs(retriever.get_relevant_documents("")))
+                          format_docs(retriever.invoke("")))
         ]
 
     if session_id not in message_buffers:
@@ -293,7 +298,7 @@ if __name__ == '__main__':
                     await new Promise(resolve => setTimeout(resolve, 300));
                 }
             } else {
-                setTimeout(pollForResponse, 1000);  // Poll every 1 second
+                setTimeout(pollForResponse, 1000);  # Poll every 1 second
             }
         }
     </script>
