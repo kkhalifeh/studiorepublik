@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -96,9 +95,7 @@
 <body>
     <h1>Zayn WhatsApp Simulator</h1>
     <div class="chat-container" id="chatContainer">
-        <div class="message bot-message">
-            Hey there! I'm Zayn from StudioRepublik. How can I help you today? 😊
-        </div>
+        <div class="message bot-message">Hey there! I'm Zayn from StudioRepublik. How can I help you today? 😊</div>
     </div>
     <div class="typing-indicator" id="typingIndicator">
         <span class="dot"></span>
@@ -111,6 +108,8 @@
     </div>
 
     <script>
+        let sessionId = null;
+
         function appendMessage(text, isUser) {
             const chatContainer = document.getElementById('chatContainer');
             const messageElement = document.createElement('div');
@@ -132,55 +131,62 @@
         async function sendMessage() {
             const userInput = document.getElementById('userInput');
             const userMessage = userInput.value.trim();
-            
             if (!userMessage) return;
             
-            // Add user message to chat
             appendMessage(userMessage, true);
             userInput.value = '';
-            
-            // Show typing indicator
             showTypingIndicator();
-            
+
             try {
-                // Send to server
                 const response = await fetch('/chat', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ message: userMessage }),
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ message: userMessage })
                 });
-                
                 const data = await response.json();
-                
-                // Handle multiple messages with typing indicators between them
+                sessionId = data.session_id;  // Store the session ID
+                console.log('Sent message to /chat, session ID:', sessionId);
+                pollForResponse();  // Start polling after sending
+            } catch (error) {
                 hideTypingIndicator();
-                
+                appendMessage("I'm having trouble connecting right now. Please try again later.", false);
+                console.error('Error sending message to /chat:', error);
+            }
+        }
+
+        async function pollForResponse(attempts = 0, maxAttempts = 20) {
+            if (attempts >= maxAttempts) {
+                hideTypingIndicator();
+                appendMessage("Sorry, I couldn't get a response in time. Please try again!", false);
+                console.log('Polling timed out after', maxAttempts, 'attempts');
+                return;
+            }
+
+            try {
+                const response = await fetch('/poll?session_id=' + sessionId, { method: 'GET' });
+                const data = await response.json();
+                console.log('Poll attempt', attempts + 1, 'session ID:', sessionId, 'data:', data);
+
                 if (data.messages && data.messages.length > 0) {
+                    hideTypingIndicator();
                     for (let i = 0; i < data.messages.length; i++) {
                         if (i > 0) {
-                            // Show typing indicator between messages
                             showTypingIndicator();
                             await new Promise(resolve => setTimeout(resolve, 1000));
                             hideTypingIndicator();
                         }
-                        
                         appendMessage(data.messages[i], false);
-                        
-                        // Small delay after message
                         await new Promise(resolve => setTimeout(resolve, 300));
                     }
                 } else {
-                    appendMessage("Sorry, I couldn't process your request.", false);
+                    setTimeout(() => pollForResponse(attempts + 1, maxAttempts), 1000);  // Poll every 1 second
                 }
             } catch (error) {
                 hideTypingIndicator();
-                appendMessage("I'm having trouble connecting right now. Please try again later.", false);
-                console.error('Error:', error);
+                appendMessage("Error polling for response. Please try again!", false);
+                console.error('Error polling /poll:', error);
             }
         }
     </script>
 </body>
 </html>
-        
