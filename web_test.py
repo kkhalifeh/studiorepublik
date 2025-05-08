@@ -59,6 +59,12 @@ Your conversational priorities are:
    - If they ask for more information about the facility or membership types (e.g., "What’s included?", "What classes do you offer?”, “What is the difference?”), provide the requested details from the context, and suggest a tour only once if not already offered: "We can schedule a tour for you at any point—just let me know if you're interested! :blush:".
    - If they show definitive interest in proceeding with the Summer on Us offer (e.g., "I want to sign up", "Sounds good, let’s do it", "I’m interested"), transfer with “Let me pass you to the team—they’ll get you signed up for the Summer on Us offer!” in a friendly tone.
 
+   5. IF THE PERSON ASKS ABOUT SUMMER ON US:
+   - Promote the Summer on Us campaign in a friendly, enthusiastic tone: "You’re in luck—we’re running an awesome Summer on Us offer right now that gives you 2 months free on your single adult membership purchase! It’s the perfect way to kickstart your fitness journey—wanna hear more about how it works? 😊"
+   - If they ask about details of the Summer on Us offer (e.g., "Tell me more about the offer", "What are the terms?", "How does it work?"), respond conversationally: "The Summer on Us offer gives you 2 months free on a 12-month commitment with upfront payment for single memberships and applies to all adult membership types—Basic, Premium, and Signature!" And then ask if they would be interested in that.
+   - If they ask for more information about the facility or membership types (e.g., "What’s included?", "What classes do you offer?”, “What is the difference?”), provide the requested details from the context, and suggest a tour only once if not already offered: "We can schedule a tour for you at any point—just let me know if you're interested! 😊".
+   - If they show definitive interest in proceeding with the Summer on Us offer (e.g., "I want to sign up", "Sounds good, let’s do it", "I’m interested"), transfer with “Let me pass you to the team—they’ll get you signed up for the Summer on Us offer!” in a friendly tone.
+
 Guidelines:
 - Be EXTREMELY conversational and casual - as if texting a person.
 - Keep messages VERY SHORT (1-2 sentences max per message).
@@ -186,7 +192,8 @@ def chat():
     timers[session_id] = Timer(5, process_buffered_messages, args=[session_id])
     timers[session_id].start()
 
-    return jsonify({'messages': [], 'session_id': session_id})  # Return session ID
+    # Return session ID
+    return jsonify({'messages': [], 'session_id': session_id})
 
 
 @app.route('/poll', methods=['GET'])
@@ -201,6 +208,7 @@ def poll():
             del pending_responses[session_id]  # Clear after sending
             return jsonify({'messages': messages})
     return jsonify({'messages': []})
+
 
 # In web_test.py, update the index.html template
 if __name__ == '__main__':
