@@ -92,42 +92,34 @@ def format_docs(docs):
     return "\n\n".join(doc.page_content for doc in docs)
 
 
-def split_into_messages(text, max_messages=3, max_chars_per_message=300):
+def split_into_messages(text, max_messages=3):
     text = text.strip()
-    # Try splitting by paragraphs
+
     paragraphs = [p.strip() for p in text.split("\n\n") if p.strip()]
     if len(paragraphs) >= 2 and len(paragraphs) <= max_messages:
-        # Ensure each paragraph is concise
-        return [p[:max_chars_per_message].rsplit(' ', 1)[0] + "..." if len(p) > max_chars_per_message else p for p in paragraphs[:max_messages]]
+        return paragraphs
 
-    # Try splitting by lines
     lines = [line.strip() for line in text.split("\n") if line.strip()]
     if len(lines) >= 2 and len(lines) <= max_messages:
-        # Ensure each line is concise
-        return [line[:max_chars_per_message].rsplit(' ', 1)[0] + "..." if len(line) > max_chars_per_message else line for line in lines[:max_messages]]
+        return lines
 
-    # Split by sentences
     sentences = re.split(r'(?<=[.!?])\s+', text)
     sentences = [s.strip() for s in sentences if s.strip()]
     if len(sentences) <= max_messages:
-        # Ensure each sentence group is concise
-        return [s[:max_chars_per_message].rsplit(' ', 1)[0] + "..." if len(s) > max_chars_per_message else s for s in sentences]
+        return sentences
 
-    # Group sentences into messages
     messages = []
     message_count = min(max_messages, 3)
-    # At least 1 sentence per message
-    sentences_per_message = max(1, len(sentences) // message_count)
+    sentences_per_message = len(sentences) // message_count
+
     for i in range(message_count):
         start_idx = i * sentences_per_message
         end_idx = start_idx + sentences_per_message if i < message_count - \
             1 else len(sentences)
         message = " ".join(sentences[start_idx:end_idx])
-        # Truncate message if it exceeds max_chars_per_message
-        if len(message) > max_chars_per_message:
-            message = message[:max_chars_per_message].rsplit(' ', 1)[0] + "..."
+
         messages.append(message)
-    return [msg for msg in messages if msg] or ["I'm not sure how to respond, but I can help with other topics! 😊"]
+    return messages
 
 
 def process_buffered_messages(session_id):
@@ -149,8 +141,8 @@ def process_buffered_messages(session_id):
         conversation.append(AIMessage(content=response.content))
         conversation.pop(-2)  # Remove context message
 
-        messages = split_into_messages(
-            response['result'], max_chars_per_message=300)
+        messages = split_into_messages(response.content)
+
         pending_responses[session_id] = messages  # Store for polling
         logger.info(f"Bundled response for {session_id}: {messages}")
 
