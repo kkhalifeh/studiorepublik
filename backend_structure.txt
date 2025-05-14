@@ -1,0 +1,32 @@
+.
+├── backend_structure.txt
+├── chat.py
+├── code_export.txt
+├── code_structure.txt
+├── create_db.py
+├── diagnostic.py
+├── knowledge.txt
+├── static
+│   └── images
+│       ├── boxing_area.jpg
+│       ├── coworking_cafe.jpg
+│       ├── dance_studio.png
+│       ├── hiit_area.png
+│       ├── martial_arts_area.png
+│       ├── pilates_studio.jpg
+│       ├── spinning_studio_alt.png
+│       ├── spinning_studio.png
+│       └── yoga_studio.jpg
+├── studio_db
+│   ├── 2d3167f1-7757-4633-966f-541602d9c98c
+│   │   ├── data_level0.bin
+│   │   ├── header.bin
+│   │   ├── length.bin
+│   │   └── link_lists.bin
+│   └── chroma.sqlite3
+├── templates
+│   └── index.html
+├── test_local.py
+└── web_test.py
+
+6 directories, 24 files

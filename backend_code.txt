@@ -1,3 +1,4 @@
+----- ./web_test.py -----
 # web_test.py
 
 from flask import Flask, render_template, request, jsonify, session
@@ -76,8 +77,7 @@ Guidelines:
 - IF ASKED TO BOOK or cancel ANYTHING OTHER THAN A TOUR/VISIT/APPOINTMENT FOR ADULTS (e.g., classes, programs, activities, massages) call booking_with_agent() and transfer with “Let me pass you to the team—they’ll book that for you!”
 - IF ASKED TO SIGN UP THEIR CHILD FOR THE JUNIOR SPRING CAMP call handle_junior_assessment() and transfer with “Let me pass you to the team—they’ll get your child signed up!”
 - IF ASKED ABOUT TRIALS OR DAY PASSES call assign_agent() and transfer with “I’ll grab the team to hook you up with trial details!”
-- IF ASKED ABOUT THE WEEK PASS OR SHOWS INTEREST IN PURCHASING IT (e.g., "I want the Week Pass", "I’d like to try the Week Pass"), respond conversationally: "Sorry, the Week Pass offer is no longer available! But I’d love to help you explore other options—would you like to schedule a tour to check out the facility, or I can send you a quick video tour to give you a feel for the place? 😊" If they show interest in the tour, offer available slots. If they decline the tour, send the video: "Here’s a quick video tour of our facilities: https://youtu.be/uyBRBzEUhhA?si=KXF_tkuW2Te0huoZ. Let me know if you’d like to explore other options!"
-- IF ASKED ABOUT CLASS BOOKING OR MEMBERSHIP ACTIVATION BY CORPORATE MEMBERS FROM APC, PRIVILEE, EMIRATES PLATINUM/EP, OR FACE/FACECARD (e.g., "I’m with APC, how do I book a class?", "I need to activate my Privilee membership"), respond conversationally: "As a corporate member, you’ll need to book classes through our mobile app! Just download the app, verify your corporate membership, and you’ll be able to book classes once verified. Here’s more info on the process: https://the-republiks.my.canva.site/corporate-membership. 😊" If they have further questions about the facility, provide the requested details from the context.
+- IF ASKED ABOUT THE WEEK PASS OR SHOWS INTEREST IN PURCHASING IT (e.g., "I want the Week Pass", "I’d like to try the Week Pass"), share the details in a conversational way. Then, if they show interest in purchasing (e.g., "I’ll take it", "Sounds good", "I want to buy it"), call assign_agent() and transfer with “Let me pass you to the team—they’ll get your Week Pass sorted!” in a friendly tone.
 - AFTER TRANSFERRING TO THE TEAM (e.g., "Let me pass you to the team—they’ll sort it!"), DO NOT CONTINUE THE CONVERSATION—STOP RESPONDING as the conversation will be handled by a team member.
 - NEVER INVENT DETAILS LIKE DISCOUNTS, FAMILY PACKAGES, OR UNLISTED FEATURES—pricing and perks are sensitive, so only use explicit prices (AED 400/month for Basic, AED 1,250/term for juniors) and pass anything unclear to the team by calling assign_agent().
 - ALWAYS SHARE THE LOCATION (Exit 41 - Umm Al Sheif, Eiffel Building 1, Sheikh Zayed Road, 8 16th Street, Dubai) when asked—it’s critical!
@@ -92,42 +92,28 @@ def format_docs(docs):
     return "\n\n".join(doc.page_content for doc in docs)
 
 
-def split_into_messages(text, max_messages=3, max_chars_per_message=300):
+def split_into_messages(text, max_messages=3):
     text = text.strip()
-    # Try splitting by paragraphs
     paragraphs = [p.strip() for p in text.split("\n\n") if p.strip()]
     if len(paragraphs) >= 2 and len(paragraphs) <= max_messages:
-        # Ensure each paragraph is concise
-        return [p[:max_chars_per_message].rsplit(' ', 1)[0] + "..." if len(p) > max_chars_per_message else p for p in paragraphs[:max_messages]]
-
-    # Try splitting by lines
+        return paragraphs
     lines = [line.strip() for line in text.split("\n") if line.strip()]
     if len(lines) >= 2 and len(lines) <= max_messages:
-        # Ensure each line is concise
-        return [line[:max_chars_per_message].rsplit(' ', 1)[0] + "..." if len(line) > max_chars_per_message else line for line in lines[:max_messages]]
-
-    # Split by sentences
+        return lines
     sentences = re.split(r'(?<=[.!?])\s+', text)
     sentences = [s.strip() for s in sentences if s.strip()]
     if len(sentences) <= max_messages:
-        # Ensure each sentence group is concise
-        return [s[:max_chars_per_message].rsplit(' ', 1)[0] + "..." if len(s) > max_chars_per_message else s for s in sentences]
-
-    # Group sentences into messages
+        return sentences
     messages = []
     message_count = min(max_messages, 3)
-    # At least 1 sentence per message
-    sentences_per_message = max(1, len(sentences) // message_count)
+    sentences_per_message = len(sentences) // message_count
     for i in range(message_count):
         start_idx = i * sentences_per_message
         end_idx = start_idx + sentences_per_message if i < message_count - \
             1 else len(sentences)
         message = " ".join(sentences[start_idx:end_idx])
-        # Truncate message if it exceeds max_chars_per_message
-        if len(message) > max_chars_per_message:
-            message = message[:max_chars_per_message].rsplit(' ', 1)[0] + "..."
         messages.append(message)
-    return [msg for msg in messages if msg] or ["I'm not sure how to respond, but I can help with other topics! 😊"]
+    return messages
 
 
 def process_buffered_messages(session_id):
@@ -149,8 +135,7 @@ def process_buffered_messages(session_id):
         conversation.append(AIMessage(content=response.content))
         conversation.pop(-2)  # Remove context message
 
-        messages = split_into_messages(
-            response['result'], max_chars_per_message=300)
+        messages = split_into_messages(response.content)
         pending_responses[session_id] = messages  # Store for polling
         logger.info(f"Bundled response for {session_id}: {messages}")
 
@@ -346,3 +331,414 @@ if __name__ == '__main__':
 </html>
         ''')
     app.run(debug=True, port=5000)
+----- ./diagnostic.py -----
+# Here's a simple diagnostic script you can run to check your environment
+# Save this as diagnostic.py in your application directory
+
+import os
+import sys
+import logging
+import importlib.util
+
+def check_dependencies():
+    """Check if all required dependencies are installed."""
+    required_packages = [
+        'flask', 'langchain_openai', 'langchain_chroma', 
+        'langchain_core', 'dotenv', 'openai'
+    ]
+    
+    missing = []
+    for package in required_packages:
+        try:
+            importlib.import_module(package)
+            print(f"✅ {package} is installed")
+        except ImportError:
+            missing.append(package)
+            print(f"❌ {package} is NOT installed")
+    
+    return missing
+
+def check_environment():
+    """Check if all required environment variables are set."""
+    required_vars = ['OPENAI_API_KEY']
+    
+    missing = []
+    for var in required_vars:
+        if os.environ.get(var):
+            print(f"✅ {var} is set")
+        else:
+            missing.append(var)
+            print(f"❌ {var} is NOT set")
+    
+    return missing
+
+def check_file_permissions():
+    """Check if all required directories and files have proper permissions."""
+    paths = [
+        './studio_db',
+        './templates',
+        './nohup.out'
+    ]
+    
+    issues = []
+    for path in paths:
+        if not os.path.exists(path):
+            issues.append(f"{path} does not exist")
+            print(f"❌ {path} does not exist")
+            continue
+            
+        if not os.access(path, os.R_OK):
+            issues.append(f"{path} is not readable")
+            print(f"❌ {path} is not readable")
+        else:
+            print(f"✅ {path} is readable")
+            
+        if os.path.isdir(path) and not os.access(path, os.W_OK):
+            issues.append(f"{path} is not writable")
+            print(f"❌ {path} is not writable")
+        elif os.path.isdir(path):
+            print(f"✅ {path} is writable")
+    
+    return issues
+
+if __name__ == "__main__":
+    print("Running diagnostics...")
+    print("\nChecking dependencies:")
+    missing_deps = check_dependencies()
+    
+    print("\nChecking environment variables:")
+    missing_vars = check_environment()
+    
+    print("\nChecking file permissions:")
+    permission_issues = check_file_permissions()
+    
+    print("\nDiagnostic Summary:")
+    if not missing_deps and not missing_vars and not permission_issues:
+        print("✅ All checks passed! Your environment appears to be properly configured.")
+    else:
+        print("❌ Some issues were found:")
+        if missing_deps:
+            print(f"  - Missing dependencies: {', '.join(missing_deps)}")
+            print("    Fix with: pip install " + " ".join(missing_deps))
+        if missing_vars:
+            print(f"  - Missing environment variables: {', '.join(missing_vars)}")
+            print("    Add these to your .env file")
+        if permission_issues:
+            print(f"  - Permission issues: {', '.join(permission_issues)}")
+            print("    Fix with appropriate chmod commands")----- ./chat.py -----
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_chroma import Chroma
+from langchain.chains import RetrievalQA
+from langchain_core.prompts import PromptTemplate
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# Initialize embeddings and vector DB
+embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+vectordb = Chroma(persist_directory="./studio_db", embedding_function=embeddings)
+retriever = vectordb.as_retriever(search_kwargs={"k": 3})
+
+# Initialize LLM
+llm = ChatOpenAI(model_name="gpt-4o")
+
+# Correctly define prompt using PromptTemplate
+prompt_template = PromptTemplate.from_template("""
+You are Zayn, a friendly and professional AI sales qualifier at StudioRepublik Dubai. Your primary goal is to qualify potential clients, encourage scheduling a facility tour, and collect useful profiling information to help the sales team.
+
+Your conversational priorities are:
+1. Politely and naturally encourage clients to schedule a facility visit.
+2. If the client is hesitant or not immediately ready to schedule a visit, shift the conversation to gently gather more profiling information, including:
+   - Fitness goals and interests
+   - Preferred types of workouts or classes
+   - Current fitness routine
+   - Place of residence or neighborhood (to confirm proximity to StudioRepublik)
+
+Guidelines:
+- Maintain a warm, conversational, empathetic tone.
+- NEVER be pushy. If they hesitate to schedule, smoothly transition into engaging conversation to collect profiling data.
+- Respond ONLY from the provided context. If uncertain, politely say: "The sales team can provide more details during your visit or through direct follow-up."
+- Break your responses into multiple separate messages (2-3) for a more natural conversation flow on WhatsApp.
+
+Context:
+{context}
+
+Conversation:
+Client Question: {question}
+Zayn's Response:
+""")
+
+
+
+# Define QA chain correctly
+qa_chain = RetrievalQA.from_chain_type(
+    llm=llm,
+    retriever=retriever,
+    chain_type="stuff",
+    chain_type_kwargs={"prompt": prompt_template},
+    return_source_documents=False,
+)
+
+print("Hey there! I'm Zayn from StudioRepublik. How can I help you today? (Type 'quit' to exit)\n")
+
+# Chat loop
+while True:
+    question = input("You: ")
+    if question.lower() in ["quit", "exit"]:
+        print("Zayn: Thanks for chatting! Have a great day 😊")
+        break
+
+    response = qa_chain({"query": question})
+    print(f"Zayn: {response['result']}\n")
+----- ./test_local.py -----
+# test_local_fixed.py
+
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_chroma import Chroma
+from langchain_core.prompts import PromptTemplate
+from langchain_core.runnables import RunnablePassthrough
+from dotenv import load_dotenv
+import json
+import time
+import os
+
+load_dotenv()
+
+# Initialize embeddings and vector DB
+embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+vectordb = Chroma(persist_directory="./studio_db", embedding_function=embeddings)
+retriever = vectordb.as_retriever(search_kwargs={"k": 3})
+
+# Define function that will be used by model
+tools = [
+    {
+        "type": "function",
+        "function": {
+            "name": "split_response",
+            "description": "Split a response into multiple messages for a more natural conversation flow",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "messages": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "Array of message strings to be sent as separate messages"
+                    }
+                },
+                "required": ["messages"]
+            }
+        }
+    }
+]
+
+# Initialize LLM with function calling
+llm = ChatOpenAI(
+    model_name="gpt-4o",
+    temperature=0.7,
+)
+
+# Define the function calling in model_kwargs instead
+llm_with_tools = llm.bind(
+    model_kwargs={"tools": tools}
+)
+
+# Correctly define prompt using PromptTemplate
+prompt_template = PromptTemplate.from_template("""
+You are Zayn, a friendly and professional AI sales qualifier at StudioRepublik Dubai. Your primary goal is to qualify potential clients, encourage scheduling a facility tour, and collect useful profiling information to help the sales team.
+
+Your conversational priorities are:
+1. Politely and naturally encourage clients to schedule a facility visit.
+2. If the client is hesitant or not immediately ready to schedule a visit, shift the conversation to gently gather more profiling information, including:
+   - Fitness goals and interests
+   - Preferred types of workouts or classes
+   - Current fitness routine
+   - Place of residence or neighborhood (to confirm proximity to StudioRepublik)
+
+Guidelines:
+- Maintain a warm, conversational, empathetic tone.
+- NEVER be pushy. If they hesitate to schedule, smoothly transition into engaging conversation to collect profiling data.
+- Respond ONLY from the provided context. If uncertain, politely say: "The sales team can provide more details during your visit or through direct follow-up."
+- ALWAYS use the split_response function to break your response into 2-3 separate messages for a more natural conversation flow. Each message should be a separate thought or point.
+
+Context:
+{context}
+
+Conversation:
+Client Question: {question}
+Zayn's Response:
+""")
+
+# Define the RAG chain
+def format_docs(docs):
+    return "\n\n".join(doc.page_content for doc in docs)
+
+rag_chain = (
+    {"context": retriever | format_docs, "question": RunnablePassthrough()}
+    | prompt_template
+    | llm_with_tools
+)
+
+# Helper function to parse function arguments
+def parse_function_args(tool_call):
+    function_args = tool_call.get("arguments", "{}")
+    if isinstance(function_args, str):
+        try:
+            return json.loads(function_args)
+        except json.JSONDecodeError:
+            print(f"Error parsing function arguments: {function_args}")
+            return {}
+    return function_args
+
+# Function to handle the split_response tool
+def handle_split_response(response):
+    print("\nDebug - Full response structure:")
+    print(f"Response type: {type(response)}")
+    print(f"Response has 'tool_calls' attribute: {hasattr(response, 'tool_calls')}")
+    
+    # First check if there are tool calls
+    if hasattr(response, 'tool_calls') and response.tool_calls:
+        print(f"Found {len(response.tool_calls)} tool calls")
+        
+        for i, tool_call in enumerate(response.tool_calls):
+            print(f"Tool call {i+1}: {tool_call.get('name', 'unknown')}")
+            
+            if tool_call.get("name") == "split_response":
+                function_args = parse_function_args(tool_call)
+                messages = function_args.get("messages", [])
+                
+                print(f"Split response messages: {len(messages)}")
+                
+                if messages:
+                    return messages
+    else:
+        print("No tool calls found in response")
+    
+    # If no split_response tool was called or it failed, use the content
+    content = response.content if hasattr(response, 'content') else str(response)
+    print(f"Falling back to content: {content[:50]}...")
+    
+    # If we have content, return it as a single message
+    if content:
+        return [content]
+    
+    # Last resort fallback
+    return ["I'm sorry, I'm having trouble with my response system. Let me try again. How can I help you with StudioRepublik today?"]
+
+# Manual message splitting as a fallback
+def split_message(content, max_length=1000):
+    """Split a long message into multiple smaller messages"""
+    # If message is short enough, return as is
+    if len(content) <= max_length:
+        return [content]
+    
+    # Try to split by paragraphs
+    paragraphs = content.split('\n\n')
+    
+    if len(paragraphs) > 1:
+        # Group paragraphs to stay below max_length
+        messages = []
+        current_message = ""
+        
+        for paragraph in paragraphs:
+            if len(current_message) + len(paragraph) + 2 <= max_length:
+                if current_message:
+                    current_message += "\n\n" + paragraph
+                else:
+                    current_message = paragraph
+            else:
+                messages.append(current_message)
+                current_message = paragraph
+        
+        if current_message:
+            messages.append(current_message)
+        
+        return messages
+    
+    # If no paragraphs, split by sentences
+    import re
+    sentences = re.split(r'(?<=[.!?])\s+', content)
+    
+    messages = []
+    current_message = ""
+    
+    for sentence in sentences:
+        if len(current_message) + len(sentence) + 1 <= max_length:
+            if current_message:
+                current_message += " " + sentence
+            else:
+                current_message = sentence
+        else:
+            messages.append(current_message)
+            current_message = sentence
+    
+    if current_message:
+        messages.append(current_message)
+    
+    return messages
+
+# Local testing function
+def test_local_chat():
+    print("Hey there! I'm Zayn from StudioRepublik. How can I help you today? (Type 'quit' to exit)\n")
+    
+    # Chat loop
+    while True:
+        question = input("You: ")
+        if question.lower() in ["quit", "exit"]:
+            print("Zayn: Thanks for chatting! Have a great day 😊")
+            break
+        
+        print("\nProcessing your question...")
+        
+        try:
+            # Process with RAG chain
+            response = rag_chain.invoke(question)
+            
+            print(f"Response received. Processing messages...")
+            
+            # Get messages using the split_response tool or fallback method
+            messages = handle_split_response(response)
+            
+            # If for some reason we have no messages or empty messages, use fallback
+            if not messages or all(not msg for msg in messages):
+                print("No valid messages found, using manual splitting...")
+                text_content = response.content if hasattr(response, 'content') else str(response)
+                messages = split_message(text_content)
+            
+            # Print messages with a delay between them
+            print("\nZayn is typing...\n")
+            for i, message in enumerate(messages):
+                time.sleep(1)  # Simulate typing delay
+                print(f"Zayn: {message}")
+                if i < len(messages) - 1:
+                    time.sleep(0.5)  # Delay between messages
+                    print("\nZayn is typing...\n")
+            
+            print()  # Extra line for readability
+            
+        except Exception as e:
+            print(f"\nError in processing: {str(e)}")
+            print("Zayn: I apologize, but I'm experiencing a technical issue. Let me try again!")
+
+if __name__ == "__main__":
+    test_local_chat()----- ./create_db.py -----
+from langchain.document_loaders import TextLoader
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.vectorstores import Chroma
+from langchain.embeddings import OpenAIEmbeddings
+from dotenv import load_dotenv
+
+load_dotenv()
+
+loader = TextLoader('knowledge.txt')
+documents = loader.load()
+
+text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
+texts = text_splitter.split_documents(documents)
+
+embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+vectordb = Chroma.from_documents(texts, embeddings, persist_directory="./studio_db")
+vectordb.persist()
+
+print("✅ Vector DB created!")
