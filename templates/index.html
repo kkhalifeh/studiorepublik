@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -5,91 +6,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Zayn WhatsApp Simulator</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 600px;
-            margin: 0 auto;
-            padding: 20px;
-            background-color: #f0f0f0;
-        }
-        .chat-container {
-            background-color: #dcf8c6;
-            border-radius: 10px;
-            padding: 10px;
-            margin-bottom: 20px;
-            height: 400px;
-            overflow-y: auto;
-        }
-        .message {
-            padding: 10px;
-            margin: 5px 0;
-            border-radius: 10px;
-            max-width: 70%;
-            word-wrap: break-word;
-        }
-        .user-message {
-            background-color: #ffffff;
-            margin-left: auto;
-            margin-right: 10px;
-        }
-        .bot-message {
-            background-color: #e1ffc7;
-            margin-right: auto;
-            margin-left: 10px;
-        }
-        .input-container {
-            display: flex;
-            margin-top: 10px;
-        }
-        input {
-            flex-grow: 1;
-            padding: 10px;
-            border: 1px solid #ccc;
-            border-radius: 20px;
-            font-size: 16px;
-        }
-        button {
-            margin-left: 10px;
-            padding: 10px 20px;
-            background-color: #25d366;
-            color: white;
-            border: none;
-            border-radius: 20px;
-            cursor: pointer;
-        }
-        .typing-indicator {
-            padding: 10px;
-            margin: 5px 0;
-            border-radius: 10px;
-            background-color: #e1ffc7;
-            max-width: 70px;
-            margin-right: auto;
-            margin-left: 10px;
-            display: none;
-        }
-        .dot {
-            display: inline-block;
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background-color: #888;
-            margin-right: 3px;
-            animation: wave 1.3s linear infinite;
-        }
-        .dot:nth-child(2) {
-            animation-delay: -1.1s;
-        }
-        .dot:nth-child(3) {
-            animation-delay: -0.9s;
-        }
-        @keyframes wave {
-            0%, 60%, 100% {
-                transform: initial;
-            }
-            30% {
-                transform: translateY(-5px);
-            }
-        }
+        body { font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f0f0f0; }
+        .chat-container { background-color: #dcf8c6; border-radius: 10px; padding: 10px; margin-bottom: 20px; height: 400px; overflow-y: auto; }
+        .message { padding: 10px; margin: 5px 0; border-radius: 10px; max-width: 70%; word-wrap: break-word; }
+        .user-message { background-color: #ffffff; margin-left: auto; margin-right: 10px; }
+        .bot-message { background-color: #e1ffc7; margin-right: auto; margin-left: 10px; }
+        .input-container { display: flex; margin-top: 10px; }
+        input { flex-grow: 1; padding: 10px; border: 1px solid #ccc; border-radius: 20px; font-size: 16px; }
+        button { margin-left: 10px; padding: 10px 20px; background-color: #25d366; color: white; border: none; border-radius: 20px; cursor: pointer; }
+        .typing-indicator { padding: 10px; margin: 5px 0; border-radius: 10px; background-color: #e1ffc7; max-width: 70px; margin-right: auto; margin-left: 10px; display: none; }
+        .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background-color: #888; margin-right: 3px; animation: wave 1.3s linear infinite; }
+        .dot:nth-child(2) { animation-delay: -1.1s; }
+        .dot:nth-child(3) { animation-delay: -0.9s; }
+        @keyframes wave { 0%, 60%, 100% { transform: initial; } 30% { transform: translateY(-5px); } }
     </style>
 </head>
 <body>
@@ -98,9 +27,7 @@
         <div class="message bot-message">Hey there! I'm Zayn from StudioRepublik. How can I help you today? 😊</div>
     </div>
     <div class="typing-indicator" id="typingIndicator">
-        <span class="dot"></span>
-        <span class="dot"></span>
-        <span class="dot"></span>
+        <span class="dot"></span><span class="dot"></span><span class="dot"></span>
     </div>
     <div class="input-container">
         <input type="text" id="userInput" placeholder="Type your message..." onkeydown="if(event.key==='Enter')sendMessage()">
@@ -138,19 +65,19 @@
             showTypingIndicator();
 
             try {
-                const response = await fetch('/chat', {
+                const response = await fetch('chat', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ message: userMessage })
                 });
                 const data = await response.json();
                 sessionId = data.session_id;  // Store the session ID
-                console.log('Sent message to /chat, session ID:', sessionId);
+                console.log('Sent message to chat, session ID:', sessionId);
                 pollForResponse();  // Start polling after sending
             } catch (error) {
                 hideTypingIndicator();
                 appendMessage("I'm having trouble connecting right now. Please try again later.", false);
-                console.error('Error sending message to /chat:', error);
+                console.error('Error sending message to chat:', error);
             }
         }
 
@@ -163,7 +90,7 @@
             }
 
             try {
-                const response = await fetch('/poll?session_id=' + sessionId, { method: 'GET' });
+                const response = await fetch('poll?session_id=' + sessionId, { method: 'GET' });
                 const data = await response.json();
                 console.log('Poll attempt', attempts + 1, 'session ID:', sessionId, 'data:', data);
 
@@ -184,9 +111,10 @@
             } catch (error) {
                 hideTypingIndicator();
                 appendMessage("Error polling for response. Please try again!", false);
-                console.error('Error polling /poll:', error);
+                console.error('Error polling poll:', error);
             }
         }
     </script>
 </body>
 </html>
+        

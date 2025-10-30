@@ -1,7 +1,7 @@
-from langchain.document_loaders import TextLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.vectorstores import Chroma
-from langchain.embeddings import OpenAIEmbeddings
+from langchain_community.document_loaders import TextLoader
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_chroma import Chroma
+from langchain_openai import OpenAIEmbeddings
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -14,6 +14,5 @@ texts = text_splitter.split_documents(documents)
 
 embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
 vectordb = Chroma.from_documents(texts, embeddings, persist_directory="./studio_db")
-vectordb.persist()
 
 print("✅ Vector DB created!")
